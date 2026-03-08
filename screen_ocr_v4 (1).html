@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen OCR Helper (Standalone HTML, V4)</title>
+  <style>
+    :root{
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: rgba(15, 23, 42, .12);
+      --shadow: 0 10px 25px rgba(2, 6, 23, .08);
+      --accent: #06b6d4;
+      --accent-2: #3b82f6;
+      --danger: #ef4444;
+      --ok: #16a34a;
+      --chip: rgba(15, 23, 42, .06);
+      --focus: rgba(59, 130, 246, .35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    html[data-theme="dark"]{
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: rgba(226, 232, 240, .12);
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --chip: rgba(226, 232, 240, .08);
+      --focus: rgba(99, 102, 241, .45);
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    /* App shell */
+    .appbar{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .appbar-inner{
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width: 220px;
+    }
+    .logo{
+      width: 26px;
+      height: 26px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 8px 18px rgba(6,182,212,.25);
+    }
+    .title{
+      display:flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .title strong{ font-size: 14px; letter-spacing: .2px; }
+    .subtitle{ font-size: 12px; color: var(--muted); }
+
+    .toolbar{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 280px;
+    }
+
+    .rightbar{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      margin-left: auto;
+      flex-wrap: wrap;
+    }
+
+    /* Controls */
+    button, select, input, textarea{
+      font: inherit;
+      color: inherit;
+    }
+    button{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+      box-shadow: 0 1px 0 rgba(0,0,0,.05);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      white-space: nowrap;
+    }
+    button:hover{ border-color: color-mix(in oklab, var(--border) 65%, var(--text)); }
+    button:active{ transform: translateY(1px); }
+    button:disabled{ opacity: .55; cursor: not-allowed; }
+
+    .btn-primary{
+      border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+      background: color-mix(in oklab, var(--accent) 12%, var(--panel));
+    }
+    .btn-danger{
+      border-color: color-mix(in oklab, var(--danger) 55%, var(--border));
+      background: color-mix(in oklab, var(--danger) 10%, var(--panel));
+    }
+    .btn-ghost{
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .seg{
+      display:flex;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow:hidden;
+      height: 38px;
+      background: var(--panel);
+    }
+    .seg button{
+      border: 0;
+      border-radius: 0;
+      height: 38px;
+      box-shadow:none;
+      padding: 9px 12px;
+      background: transparent;
+    }
+    .seg button[aria-pressed="true"]{
+      background: color-mix(in oklab, var(--accent-2) 14%, var(--panel));
+    }
+
+    select{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 12px;
+      height: 38px;
+      padding: 8px 10px;
+    }
+
+    .switch{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+      height: 38px;
+      white-space: nowrap;
+    }
+    .switch input{ width: 16px; height: 16px; }
+
+    .field{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      height: 38px;
+      white-space: nowrap;
+    }
+    .field input[type="number"]{
+      width: 92px;
+      border: 0;
+      outline: none;
+      background: transparent;
+    }
+    .field input[type="text"]{
+      width: 340px;
+      border: 0;
+      outline: none;
+      background: transparent;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+      height: 30px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot{
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .dot.ok{ background: var(--ok); }
+    .dot.warn{ background: #f59e0b; }
+    .dot.bad{ background: var(--danger); }
+
+    /* Layout */
+    .content{
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(360px, 1.2fr) minmax(340px, .8fr);
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 1050px){
+      .content{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header{
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .card-header h2{ margin: 0; font-size: 14px; letter-spacing:.2px; }
+    .card-header .hint{ font-size: 12px; color: var(--muted); }
+
+    .card-body{ padding: 12px; }
+
+    /* Video + selector */
+    .videoWrap{
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 220px;
+    }
+    video{ width: 100%; height: auto; display:block; }
+
+    .selector{
+      position:absolute;
+      left: 10px; top: 10px;
+      width: 320px; height: 160px;
+      border: 2px solid color-mix(in oklab, var(--accent) 92%, white);
+      border-radius: 12px;
+      cursor: move;
+      touch-action: none;
+      user-select:none;
+      box-sizing:border-box;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.28);
+    }
+    .selector::before{
+      content: attr(data-size);
+      position:absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.55);
+      color: white;
+      font-family: var(--mono);
+    }
+    .handle{
+      position:absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      right: -7px;
+      bottom: -7px;
+      background: color-mix(in oklab, var(--accent) 92%, white);
+      border: 2px solid rgba(255,255,255,.9);
+      cursor: nwse-resize;
+    }
+
+    .split{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 600px){
+      .split{ grid-template-columns: 1fr; }
+    }
+
+    textarea{
+      width: 100%;
+      min-height: 160px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      outline: none;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    textarea:focus, button:focus, select:focus, input:focus{ outline: 2px solid var(--focus); outline-offset: 2px; }
+
+    .tabs{
+      display:flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tab{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      cursor:pointer;
+      height: 32px;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .tab[aria-selected="true"]{
+      background: color-mix(in oklab, var(--accent-2) 14%, var(--panel));
+    }
+
+    .kv{
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items:center;
+    }
+    .kv small{ color: var(--muted); }
+
+    details{
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      overflow: hidden;
+    }
+    summary{
+      cursor:pointer;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    summary::-webkit-details-marker{ display:none; }
+
+    .adv{ padding: 10px 12px 12px; display:flex; flex-direction: column; gap: 10px; }
+
+    canvas{ width: 100%; max-height: 260px; border-radius: 14px; background: #000; border: 1px solid var(--border); }
+
+    .history{
+      display:flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 360px;
+      overflow:auto;
+      padding-right: 4px;
+    }
+    .hitem{
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+    }
+    .hmeta{ display:flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+    .hquery{ margin-top: 6px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    .hactions{ margin-top: 8px; display:flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .18s ease, transform .18s ease;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      z-index: 50;
+    }
+    .toast.show{ opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+    /* Small helper text */
+    .help{ font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="appbar-inner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <strong>Screen OCR Helper</strong>
+          <div class="subtitle">Standalone HTML • Manual or continuous OCR • Search shortcuts</div>
+        </div>
+      </div>
+
+      <div class="toolbar" role="toolbar" aria-label="Primary controls">
+        <button id="startBtn" class="btn-primary" title="Start screen capture">
+          <span aria-hidden="true">▶</span><span>Start</span>
+        </button>
+        <button id="stopBtn" class="btn-danger" disabled title="Stop screen capture">
+          <span aria-hidden="true">■</span><span>Stop</span>
+        </button>
+
+        <div class="seg" aria-label="OCR mode">
+          <button id="modeManual" aria-pressed="true" type="button">Manual</button>
+          <button id="modeCont" aria-pressed="false" type="button">Continuous</button>
+        </div>
+
+        <button id="snapBtn" disabled title="Capture region and run OCR (Ctrl+Shift+S)">
+          <span aria-hidden="true">⌁</span><span>OCR</span>
+        </button>
+
+        <div class="field" title="Continuous OCR interval">
+          <span style="font-size:12px;color:var(--muted)">Every</span>
+          <input id="interval" type="number" min="500" step="100" value="1500" />
+          <span style="font-size:12px;color:var(--muted)">ms</span>
+        </div>
+
+        <button id="copyBtn" disabled class="btn-ghost" title="Copy query (Ctrl+Shift+C)">
+          <span aria-hidden="true">⧉</span><span>Copy</span>
+        </button>
+
+        <select id="engineSel" title="Search engine">
+          <option value="google" selected>Google</option>
+          <option value="bing">Bing</option>
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="brave">Brave</option>
+          <option value="startpage">Startpage</option>
+          <option value="yandex">Yandex</option>
+          <option value="custom">Custom…</option>
+        </select>
+
+        <button id="searchBtn" disabled class="btn-primary" title="Open search results (Ctrl+Shift+G)">
+          <span aria-hidden="true">🔎</span><span>Search</span>
+        </button>
+
+        <label class="switch" title="Auto-open search results after OCR completes">
+          <input id="autoOpenSearch" type="checkbox" />
+          <span style="font-size:12px;color:var(--muted)">Auto-open</span>
+        </label>
+      </div>
+
+      <div class="rightbar">
+        <div class="pill" aria-live="polite">
+          <span id="statusDot" class="dot"></span>
+          <span id="status">Idle</span>
+        </div>
+
+        <button id="themeBtn" class="btn-ghost" title="Toggle light/dark">
+          <span aria-hidden="true">◐</span><span style="font-size:12px;color:var(--muted)">Theme</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="card" aria-label="Capture panel">
+      <div class="card-header">
+        <h2>Capture</h2>
+        <div class="hint">Tip: share a Chrome tab + zoom 150–200% for best OCR.</div>
+      </div>
+      <div class="card-body">
+        <div class="videoWrap" id="videoWrap">
+          <video id="video" autoplay muted playsinline></video>
+          <div id="selector" class="selector" hidden>
+            <div class="handle" data-handle="br" title="Resize"></div>
+          </div>
+        </div>
+
+        <div class="kv" style="margin-top:10px;">
+          <span class="pill" id="selInfo">x=0 y=0 w=0 h=0</span>
+          <small class="help">Drag to move, drag dot to resize.</small>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="help" style="margin-bottom:8px;">Snapshot preview (cropped & processed)</div>
+          <canvas id="canvas"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="OCR panel">
+      <div class="card-header">
+        <h2>OCR & Results</h2>
+        <div class="tabs" role="tablist" aria-label="Results tabs">
+          <button class="tab" id="tabQuery" role="tab" aria-selected="true" type="button">Query</button>
+          <button class="tab" id="tabOcr" role="tab" aria-selected="false" type="button">OCR</button>
+          <button class="tab" id="tabHistory" role="tab" aria-selected="false" type="button">History</button>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <div id="customEngineRow" style="display:none; margin-bottom:10px;">
+          <div class="field" style="width:100%; height:auto; padding:10px 12px;">
+            <div style="display:flex; flex-direction:column; gap:6px; width:100%;">
+              <div class="help">Custom engine URL (use <span style="font-family:var(--mono)">{q}</span>)</div>
+              <input id="customEngine" type="text" value="https://www.google.com/search?q={q}" style="width:100%;" />
+            </div>
+          </div>
+        </div>
+
+        <div id="panelQuery">
+          <textarea id="queryText" placeholder="Query will appear here (joined lines)…"></textarea>
+        </div>
+
+        <div id="panelOcr" style="display:none;">
+          <textarea id="ocrText" placeholder="OCR output will appear here…"></textarea>
+        </div>
+
+        <div id="panelHistory" style="display:none;">
+          <div class="history" id="history"></div>
+          <div class="help" style="margin-top:10px;">History stores the most recent 10 queries from this session.</div>
+        </div>
+
+        <details style="margin-top:12px;" id="advanced">
+          <summary>
+            <span>Options (Basic + Advanced)</span>
+            <span style="font-family:var(--mono); font-size:12px; color: var(--muted);">Ctrl+Shift+S / C / G</span>
+          </summary>
+          <div class="adv">
+            <div class="split">
+              <div>
+                <div class="help" style="margin-bottom:6px;">Capture region</div>
+                <div style="display:flex; flex-direction: column; gap:8px;">
+                  <label class="switch"><input id="useSelector" type="checkbox" checked /><span style="font-size:12px;color:var(--muted)">Use draggable selector</span></label>
+                  <label class="switch"><input id="autoCrop" type="checkbox" checked /><span style="font-size:12px;color:var(--muted)">Auto-crop to detected text</span></label>
+                </div>
+              </div>
+              <div>
+                <div class="help" style="margin-bottom:6px;">Preprocessing</div>
+                <div style="display:flex; flex-direction: column; gap:8px;">
+                  <label class="switch"><input id="adaptive" type="checkbox" checked /><span style="font-size:12px;color:var(--muted)">Adaptive threshold (Otsu)</span></label>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div class="field"><span style="font-size:12px;color:var(--muted)">Scale</span><input id="scale" type="number" min="1" max="6" value="3" /></div>
+                    <div class="field"><span style="font-size:12px;color:var(--muted)">Padding</span><input id="pad" type="number" min="0" max="80" value="16" /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="split">
+              <div>
+                <div class="help" style="margin-bottom:6px;">Continuous mode</div>
+                <label class="switch"><input id="onlyOnChange" type="checkbox" checked /><span style="font-size:12px;color:var(--muted)">Only update when text changes</span></label>
+                <label class="switch" title="Limit auto-open to reduce tab spam"><input id="cooldownOn" type="checkbox" checked /><span style="font-size:12px;color:var(--muted)">Auto-open cooldown</span></label>
+                <div class="field" title="Minimum seconds between auto-open events" style="margin-top:8px;"><span style="font-size:12px;color:var(--muted)">Cooldown</span><input id="cooldownSec" type="number" min="2" max="120" value="12" /><span style="font-size:12px;color:var(--muted)">s</span></div>
+              </div>
+              <div>
+                <div class="help" style="margin-bottom:6px;">Fallback manual X/Y/W/H</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <div class="field">X <input id="x" type="number" min="0" value="0" /></div>
+                  <div class="field">Y <input id="y" type="number" min="0" value="0" /></div>
+                  <div class="field">W <input id="w" type="number" min="1" value="900" /></div>
+                  <div class="field">H <input id="h" type="number" min="1" value="260" /></div>
+                </div>
+                <div class="help" style="margin-top:6px;">Used only when “Use draggable selector” is off.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div class="help" style="margin-top:12px;">
+          Note: Browsers require you to explicitly share a screen/tab. Use for legitimate OCR needs (accessibility, documentation, QA).
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>
+    // --- Elements
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+    const snapBtn  = document.getElementById('snapBtn');
+    const copyBtn  = document.getElementById('copyBtn');
+    const searchBtn= document.getElementById('searchBtn');
+
+    const modeManualBtn = document.getElementById('modeManual');
+    const modeContBtn = document.getElementById('modeCont');
+
+    const intervalEl = document.getElementById('interval');
+    const engineSel= document.getElementById('engineSel');
+    const autoOpenSearchEl = document.getElementById('autoOpenSearch');
+    const customEngineRow = document.getElementById('customEngineRow');
+    const customEngineEl  = document.getElementById('customEngine');
+
+    const cooldownOnEl = document.getElementById('cooldownOn');
+    const cooldownSecEl = document.getElementById('cooldownSec');
+
+    const videoWrap = document.getElementById('videoWrap');
+    const video   = document.getElementById('video');
+    const canvas  = document.getElementById('canvas');
+    const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+
+    const selector = document.getElementById('selector');
+    const selInfo  = document.getElementById('selInfo');
+
+    const xEl = document.getElementById('x');
+    const yEl = document.getElementById('y');
+    const wEl = document.getElementById('w');
+    const hEl = document.getElementById('h');
+
+    const useSelectorEl = document.getElementById('useSelector');
+    const autoCropEl = document.getElementById('autoCrop');
+    const adaptiveEl = document.getElementById('adaptive');
+    const scaleEl = document.getElementById('scale');
+    const padEl = document.getElementById('pad');
+    const onlyOnChangeEl = document.getElementById('onlyOnChange');
+
+    const ocrTextEl   = document.getElementById('ocrText');
+    const queryTextEl = document.getElementById('queryText');
+
+    const statusEl    = document.getElementById('status');
+    const statusDot   = document.getElementById('statusDot');
+    const toastEl     = document.getElementById('toast');
+
+    const themeBtn = document.getElementById('themeBtn');
+
+    const tabQuery = document.getElementById('tabQuery');
+    const tabOcr = document.getElementById('tabOcr');
+    const tabHistory = document.getElementById('tabHistory');
+    const panelQuery = document.getElementById('panelQuery');
+    const panelOcr = document.getElementById('panelOcr');
+    const panelHistory = document.getElementById('panelHistory');
+    const historyEl = document.getElementById('history');
+
+    // --- State
+    let stream = null;
+    let worker = null;
+    let running = false;
+    let timerId = null;
+    let lastText = '';
+    let lastAutoOpenAt = 0;
+    let history = []; // {ts, engine, query}
+
+    function toast(msg){
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1400);
+    }
+
+    function setStatus(msg, level='idle'){
+      statusEl.textContent = msg;
+      statusDot.className = 'dot' + (level === 'ok' ? ' ok' : level === 'warn' ? ' warn' : level === 'bad' ? ' bad' : '');
+    }
+
+    // --- Theme
+    function loadTheme(){
+      const t = localStorage.getItem('ocr_theme');
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+    }
+    function toggleTheme(){
+      const cur = document.documentElement.dataset.theme || 'light';
+      const next = cur === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('ocr_theme', next);
+      toast(next === 'dark' ? 'Dark mode' : 'Light mode');
+    }
+    loadTheme();
+    themeBtn.addEventListener('click', toggleTheme);
+
+    // --- Tabs
+    function setTab(which){
+      const isQ = which === 'q', isO = which === 'o', isH = which === 'h';
+      tabQuery.setAttribute('aria-selected', String(isQ));
+      tabOcr.setAttribute('aria-selected', String(isO));
+      tabHistory.setAttribute('aria-selected', String(isH));
+      panelQuery.style.display = isQ ? '' : 'none';
+      panelOcr.style.display = isO ? '' : 'none';
+      panelHistory.style.display = isH ? '' : 'none';
+    }
+    tabQuery.addEventListener('click', () => setTab('q'));
+    tabOcr.addEventListener('click', () => setTab('o'));
+    tabHistory.addEventListener('click', () => setTab('h'));
+
+    // --- Search
+    function updateEngineUi(){
+      const isCustom = engineSel.value === 'custom';
+      customEngineRow.style.display = isCustom ? '' : 'none';
+    }
+    engineSel.addEventListener('change', updateEngineUi);
+    updateEngineUi();
+
+    function buildSearchUrl(engine, query){
+      const q = encodeURIComponent(query);
+      const templates = {
+        google: 'https://www.google.com/search?q={q}',
+        bing: 'https://www.bing.com/search?q={q}',
+        duckduckgo: 'https://duckduckgo.com/?q={q}',
+        brave: 'https://search.brave.com/search?q={q}',
+        startpage: 'https://www.startpage.com/sp/search?query={q}',
+        yandex: 'https://yandex.com/search/?text={q}',
+      };
+      if (engine === 'custom'){
+        const t = (customEngineEl.value || '').trim();
+        if (!t) return '';
+        return t.includes('{q}') ? t.split('{q}').join(q) : (t + q);
+      }
+      return (templates[engine] || templates.google).split('{q}').join(q);
+    }
+
+    function openSearch(){
+      const query = (queryTextEl.value || '').trim();
+      if (!query){ setStatus('No query to search.', 'warn'); return; }
+      const url = buildSearchUrl(engineSel.value, query);
+      if (!url){ setStatus('Custom engine URL is empty.', 'warn'); return; }
+      window.open(url, '_blank', 'noopener');
+      toast('Opened search');
+      setStatus('Opened search results.', 'ok');
+    }
+    searchBtn.addEventListener('click', openSearch);
+
+    // --- Query extraction
+    function pickQuery(text){
+      return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).join(' ');
+    }
+
+    // --- Worker
+    async function getWorker(){
+      if (worker) return worker;
+      worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m?.status){
+            const pct = (typeof m.progress === 'number') ? ` ${(m.progress*100).toFixed(0)}%` : '';
+            setStatus(m.status + pct, 'warn');
+          }
+        }
+      });
+      await worker.setParameters({
+        tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300'
+      });
+      return worker;
+    }
+
+    // --- Image preprocessing
+    function otsuThreshold(gray){
+      const hist = new Array(256).fill(0);
+      for (let i=0;i<gray.length;i++) hist[gray[i]]++;
+      const total = gray.length;
+      let sum=0;
+      for (let t=0;t<256;t++) sum += t*hist[t];
+      let sumB=0,wB=0,wF=0,varMax=0,thr=127;
+      for (let t=0;t<256;t++){
+        wB += hist[t];
+        if (!wB) continue;
+        wF = total - wB;
+        if (!wF) break;
+        sumB += t*hist[t];
+        const mB = sumB/wB;
+        const mF = (sum-sumB)/wF;
+        const between = wB*wF*(mB-mF)*(mB-mF);
+        if (between>varMax){ varMax=between; thr=t; }
+      }
+      return thr;
+    }
+
+    function preprocessToBW(srcCanvas, scale=3){
+      const s = Math.max(1, Math.min(6, Number(scale)||3));
+      const w = Math.max(1, Math.round(srcCanvas.width * s));
+      const h = Math.max(1, Math.round(srcCanvas.height * s));
+
+      const out = document.createElement('canvas');
+      out.width = w; out.height = h;
+      const octx = out.getContext('2d', { willReadFrequently:true });
+      octx.imageSmoothingEnabled = false;
+      octx.drawImage(srcCanvas, 0, 0, w, h);
+
+      const img = octx.getImageData(0,0,w,h);
+      const d = img.data;
+      const gray = new Uint8Array(w*h);
+      for (let i=0,j=0;i<d.length;i+=4,j++){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        gray[j] = (0.299*r + 0.587*g + 0.114*b) | 0;
+      }
+      let thr = 165;
+      if (adaptiveEl.checked) thr = otsuThreshold(gray);
+      for (let i=0,j=0;i<d.length;i+=4,j++){
+        const v = gray[j] > thr ? 255 : 0;
+        d[i]=d[i+1]=d[i+2]=v;
+        d[i+3]=255;
+      }
+      octx.putImageData(img,0,0);
+      return out;
+    }
+
+    function autoCropCanvas(bwCanvas, padding=16){
+      const w = bwCanvas.width, h = bwCanvas.height;
+      const cctx = bwCanvas.getContext('2d', { willReadFrequently:true });
+      const img = cctx.getImageData(0,0,w,h);
+      const d = img.data;
+
+      let minX=w, minY=h, maxX=-1, maxY=-1;
+      for (let y=0;y<h;y++){
+        for (let x=0;x<w;x++){
+          const idx = (y*w + x)*4;
+          if (d[idx] === 0){
+            if (x<minX) minX=x;
+            if (y<minY) minY=y;
+            if (x>maxX) maxX=x;
+            if (y>maxY) maxY=y;
+          }
+        }
+      }
+      if (maxX<0 || maxY<0) return bwCanvas;
+
+      const pad = Math.max(0, Math.min(80, Number(padding)||0));
+      minX = Math.max(0, minX-pad);
+      minY = Math.max(0, minY-pad);
+      maxX = Math.min(w-1, maxX+pad);
+      maxY = Math.min(h-1, maxY+pad);
+
+      const cw = Math.max(1, maxX-minX+1);
+      const ch = Math.max(1, maxY-minY+1);
+      const out = document.createElement('canvas');
+      out.width = cw; out.height = ch;
+      out.getContext('2d', { willReadFrequently:true }).drawImage(bwCanvas, minX, minY, cw, ch, 0, 0, cw, ch);
+      return out;
+    }
+
+    function renderPreview(c){
+      canvas.width = c.width;
+      canvas.height = c.height;
+      ctx.drawImage(c, 0, 0);
+    }
+
+    // --- Selector coordinate mapping
+    function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+
+    function getDisplayedVideoRect(){
+      return video.getBoundingClientRect();
+    }
+
+    function selectorToVideoPixels(){
+      const vRect = getDisplayedVideoRect();
+      const sRect = selector.getBoundingClientRect();
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const scaleX = vw / vRect.width;
+      const scaleY = vh / vRect.height;
+      const x = clamp((sRect.left - vRect.left) * scaleX, 0, vw - 1);
+      const y = clamp((sRect.top - vRect.top) * scaleY, 0, vh - 1);
+      const w = clamp(sRect.width * scaleX, 1, vw - x);
+      const h = clamp(sRect.height * scaleY, 1, vh - y);
+      return { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
+    }
+
+    function snapshotCropRaw(){
+      if (!stream) return null;
+      const vw = video.videoWidth, vh = video.videoHeight;
+      let x,y,w,h;
+      if (useSelectorEl.checked){
+        ({x,y,w,h} = selectorToVideoPixels());
+      } else {
+        x = Math.max(0, parseInt(xEl.value,10) || 0);
+        y = Math.max(0, parseInt(yEl.value,10) || 0);
+        w = Math.max(1, parseInt(wEl.value,10) || 1);
+        h = Math.max(1, parseInt(hEl.value,10) || 1);
+        if (x+w>vw) w = vw-x;
+        if (y+h>vh) h = vh-y;
+      }
+
+      selInfo.textContent = `x=${x} y=${y} w=${w} h=${h}`;
+      selector.dataset.size = `${w}×${h}`;
+
+      const raw = document.createElement('canvas');
+      raw.width = w; raw.height = h;
+      raw.getContext('2d', { willReadFrequently:true }).drawImage(video, x, y, w, h, 0, 0, w, h);
+      return raw;
+    }
+
+    // --- OCR loop
+    function canAutoOpenNow(){
+      if (!autoOpenSearchEl.checked) return false;
+      if (!cooldownOnEl.checked) return true;
+      const cooldownMs = clamp((parseInt(cooldownSecEl.value,10)||12) * 1000, 2000, 120000);
+      return (Date.now() - lastAutoOpenAt) >= cooldownMs;
+    }
+
+    function recordHistory(query){
+      const item = { ts: Date.now(), engine: engineSel.value, query };
+      history.unshift(item);
+      history = history.slice(0, 10);
+      renderHistory();
+    }
+
+    function formatTime(ts){
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+
+    function renderHistory(){
+      historyEl.innerHTML = '';
+      if (!history.length){
+        const empty = document.createElement('div');
+        empty.className = 'help';
+        empty.textContent = 'No history yet. Run OCR to add items.';
+        historyEl.appendChild(empty);
+        return;
+      }
+      for (const it of history){
+        const div = document.createElement('div');
+        div.className = 'hitem';
+
+        const meta = document.createElement('div');
+        meta.className = 'hmeta';
+        meta.innerHTML = `<span>${formatTime(it.ts)}</span><span>${it.engine}</span>`;
+
+        const q = document.createElement('div');
+        q.className = 'hquery';
+        q.textContent = it.query;
+
+        const actions = document.createElement('div');
+        actions.className = 'hactions';
+
+        const bCopy = document.createElement('button');
+        bCopy.className = 'btn-ghost';
+        bCopy.textContent = 'Copy';
+        bCopy.onclick = async () => {
+          await navigator.clipboard.writeText(it.query);
+          toast('Copied');
+        };
+
+        const bSearch = document.createElement('button');
+        bSearch.className = 'btn-primary';
+        bSearch.textContent = 'Search';
+        bSearch.onclick = () => {
+          const url = buildSearchUrl(it.engine, it.query);
+          if (url) window.open(url, '_blank', 'noopener');
+        };
+
+        actions.appendChild(bCopy);
+        actions.appendChild(bSearch);
+
+        div.appendChild(meta);
+        div.appendChild(q);
+        div.appendChild(actions);
+
+        historyEl.appendChild(div);
+      }
+    }
+    renderHistory();
+
+    async function doOcrOnce(){
+      if (running || !stream) return;
+      running = true;
+
+      try{
+        setStatus('Preparing image…', 'warn');
+        const raw = snapshotCropRaw();
+        if (!raw){ running = false; return; }
+
+        const bw = preprocessToBW(raw, scaleEl.value);
+        const finalCanvas = autoCropEl.checked ? autoCropCanvas(bw, padEl.value) : bw;
+        renderPreview(finalCanvas);
+
+        setStatus('Running OCR…', 'warn');
+        const w = await getWorker();
+        const { data } = await w.recognize(finalCanvas);
+
+        const text = data?.text?.trim() || '';
+        if (onlyOnChangeEl.checked && text && text === lastText){
+          setStatus('No change.', 'ok');
+          running = false;
+          return;
+        }
+
+        lastText = text;
+        ocrTextEl.value = text;
+        const query = pickQuery(text);
+        queryTextEl.value = query;
+
+        const hasQuery = Boolean(query);
+        copyBtn.disabled = !hasQuery;
+        searchBtn.disabled = !hasQuery;
+
+        if (!hasQuery){
+          setStatus('OCR complete (no usable text).', 'warn');
+          running = false;
+          return;
+        }
+
+        recordHistory(query);
+        setStatus('OCR complete.', 'ok');
+
+        // Auto-open if enabled
+        if (canAutoOpenNow()){
+          const url = buildSearchUrl(engineSel.value, query);
+          if (url){
+            window.open(url, '_blank', 'noopener');
+            lastAutoOpenAt = Date.now();
+            toast('Auto-opened search');
+          }
+        }
+
+      } catch (err){
+        console.error(err);
+        setStatus('OCR failed. Check console.', 'bad');
+      } finally {
+        running = false;
+      }
+    }
+
+    // --- Capture lifecycle
+    async function startCapture(){
+      try{
+        setStatus('Requesting capture permission…', 'warn');
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 10 }, audio: false });
+        video.srcObject = stream;
+        await new Promise(res => video.onloadedmetadata = res);
+
+        selector.hidden = false;
+        positionSelectorDefault();
+        updateSelectorInfo();
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        snapBtn.disabled = false;
+
+        setStatus(`Capturing (${video.videoWidth}×${video.videoHeight})`, 'ok');
+
+        if (modeContBtn.getAttribute('aria-pressed') === 'true') startContinuous();
+      } catch (err){
+        console.error(err);
+        setStatus('Capture cancelled or not allowed.', 'warn');
+      }
+    }
+
+    function stopCapture(){
+      stopContinuous();
+      if (stream){
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      selector.hidden = true;
+
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      snapBtn.disabled = true;
+      copyBtn.disabled = true;
+      searchBtn.disabled = true;
+
+      setStatus('Stopped.', 'idle');
+    }
+
+    function startContinuous(){
+      stopContinuous();
+      const ms = clamp(parseInt(intervalEl.value,10) || 1500, 500, 60000);
+      timerId = setInterval(() => { if (stream) doOcrOnce(); }, ms);
+      setStatus(`Continuous OCR every ${ms}ms`, 'ok');
+    }
+
+    function stopContinuous(){
+      if (timerId){ clearInterval(timerId); timerId = null; }
+    }
+
+    // --- Copy
+    async function copyQuery(){
+      const q = (queryTextEl.value || '').trim();
+      if (!q) return;
+      try{ await navigator.clipboard.writeText(q); toast('Copied'); }
+      catch{ queryTextEl.focus(); queryTextEl.select(); document.execCommand('copy'); toast('Copied'); }
+    }
+
+    // --- Mode segmented control
+    function setMode(mode){
+      const isManual = mode === 'manual';
+      modeManualBtn.setAttribute('aria-pressed', String(isManual));
+      modeContBtn.setAttribute('aria-pressed', String(!isManual));
+
+      // In manual mode, interval field is still visible but harmless; keep it visible to reduce layout shift.
+      if (stream){
+        if (!isManual) startContinuous();
+        else { stopContinuous(); setStatus('Manual mode.', 'ok'); }
+      }
+    }
+    modeManualBtn.addEventListener('click', () => setMode('manual'));
+    modeContBtn.addEventListener('click', () => setMode('cont'));
+
+    // --- Selector interactions
+    let dragMode = null; // 'move' or 'resize'
+    let startX=0, startY=0, startLeft=0, startTop=0, startW=0, startH=0;
+
+    function positionSelectorDefault(){
+      const rect = video.getBoundingClientRect();
+      const w = clamp(rect.width * 0.7, 220, rect.width - 20);
+      const h = clamp(rect.height * 0.35, 120, rect.height - 20);
+      selector.style.left = '10px';
+      selector.style.top = '10px';
+      selector.style.width = `${Math.round(w)}px`;
+      selector.style.height = `${Math.round(h)}px`;
+    }
+
+    function updateSelectorInfo(){
+      if (!stream || selector.hidden){
+        selInfo.textContent = 'x=0 y=0 w=0 h=0';
+        selector.dataset.size = '';
+        return;
+      }
+      const { x,y,w,h } = selectorToVideoPixels();
+      selInfo.textContent = `x=${x} y=${y} w=${w} h=${h}`;
+      selector.dataset.size = `${w}×${h}`;
+    }
+
+    function onPointerDown(e){
+      if (!useSelectorEl.checked || selector.hidden) return;
+      const target = e.target;
+      dragMode = (target?.dataset?.handle === 'br') ? 'resize' : 'move';
+
+      const s = selector.getBoundingClientRect();
+      const wrap = videoWrap.getBoundingClientRect();
+
+      startX = e.clientX; startY = e.clientY;
+      startLeft = s.left - wrap.left;
+      startTop  = s.top - wrap.top;
+      startW = s.width; startH = s.height;
+
+      selector.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+
+    function onPointerMove(e){
+      if (!dragMode) return;
+      const wrap = videoWrap.getBoundingClientRect();
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      let left = startLeft, top = startTop, w = startW, h = startH;
+      if (dragMode === 'move'){ left = startLeft + dx; top = startTop + dy; }
+      else { w = startW + dx; h = startH + dy; }
+
+      const minW = 90, minH = 70;
+      w = clamp(w, minW, wrap.width - 2);
+      h = clamp(h, minH, wrap.height - 2);
+      left = clamp(left, 0, wrap.width - w);
+      top  = clamp(top, 0, wrap.height - h);
+
+      selector.style.left = `${Math.round(left)}px`;
+      selector.style.top = `${Math.round(top)}px`;
+      selector.style.width = `${Math.round(w)}px`;
+      selector.style.height = `${Math.round(h)}px`;
+
+      updateSelectorInfo();
+      e.preventDefault();
+    }
+
+    function onPointerUp(e){
+      if (!dragMode) return;
+      dragMode = null;
+      try{ selector.releasePointerCapture(e.pointerId); }catch{}
+      updateSelectorInfo();
+      e.preventDefault();
+    }
+
+    selector.addEventListener('pointerdown', onPointerDown);
+    selector.addEventListener('pointermove', onPointerMove);
+    selector.addEventListener('pointerup', onPointerUp);
+    selector.addEventListener('pointercancel', onPointerUp);
+
+    useSelectorEl.addEventListener('change', () => {
+      selector.style.pointerEvents = useSelectorEl.checked ? 'auto' : 'none';
+      selector.style.opacity = useSelectorEl.checked ? '1' : '.55';
+    });
+
+    window.addEventListener('resize', () => { if (stream) updateSelectorInfo(); });
+
+    // --- Wiring
+    startBtn.addEventListener('click', startCapture);
+    stopBtn.addEventListener('click', stopCapture);
+    snapBtn.addEventListener('click', doOcrOnce);
+    copyBtn.addEventListener('click', copyQuery);
+
+    intervalEl.addEventListener('change', () => {
+      if (stream && modeContBtn.getAttribute('aria-pressed') === 'true') startContinuous();
+    });
+
+    // Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!e.ctrlKey || !e.shiftKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 's'){ e.preventDefault(); if (!snapBtn.disabled) doOcrOnce(); }
+      if (k === 'c'){ e.preventDefault(); if (!copyBtn.disabled) copyQuery(); }
+      if (k === 'g'){ e.preventDefault(); if (!searchBtn.disabled) openSearch(); }
+    });
+
+    // Stop capture if user ends sharing via browser UI
+    video.addEventListener('pause', () => { if (stream) setStatus('Capture paused.', 'warn'); });
+
+    // Initial
+    setStatus('Idle', 'idle');
+  </script>
+</body>
+</html>
